@@ -332,28 +332,26 @@ static int32_t find_track_end(lv_obj_t * cont, flex_t * f, int32_t item_start_id
     t->grow_dsc = NULL;
 
     int32_t item_id = item_start_id;
+    int32_t grow_min_size_sum = 0;
     lv_obj_t * item = lv_obj_get_child(cont, item_id);
     bool first_item = true;
     while(item) {
-        if(item_id != item_start_id && lv_obj_has_flag(item, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK))
-            break;
+        if(item_id != item_start_id && lv_obj_has_flag(item, LV_OBJ_FLAG_FLEX_IN_NEW_TRACK)) break;
 
         if(!lv_obj_has_flag_any(item, LV_OBJ_FLAG_IGNORE_LAYOUT | LV_OBJ_FLAG_HIDDEN | LV_OBJ_FLAG_FLOATING)) {
             uint8_t grow_value = lv_obj_get_style_flex_grow(item, LV_PART_MAIN);
             if(grow_value) {
-                int32_t min_size = f->row ? lv_obj_calc_dynamic_width(item, LV_STYLE_MIN_WIDTH)
-                                   : lv_obj_calc_dynamic_height(item, LV_STYLE_MIN_HEIGHT);
+                int32_t min_size = f->row ? lv_obj_get_style_min_width(item, LV_PART_MAIN)
+                                   : lv_obj_get_style_min_height(item, LV_PART_MAIN);
+
                 int32_t req_size = min_size;
-                if(item_id != item_start_id) {
-                    req_size += item_gap; /*No gap before the first item*/
-                }
+                if(!first_item) req_size += item_gap; /*No gap before the first item*/
 
                 /*Wrap if can't fit*/
-                if(f->wrap && t->track_fix_main_size + t->track_grow_min_size + req_size > max_main_size)
-                    break;
+                if(f->wrap && t->track_fix_main_size + grow_min_size_sum  + req_size > max_main_size) break;
 
-                t->track_grow_min_size += min_size;
-                if(item_id != item_start_id) {
+                grow_min_size_sum += req_size;
+                if(!first_item) {
                     t->track_fix_main_size += item_gap; /*The gap is always taken from the space*/
                 }
 
@@ -362,15 +360,14 @@ static int32_t find_track_end(lv_obj_t * cont, flex_t * f, int32_t item_start_id
                 if(t->grow_dsc_calc) {
                     grow_dsc_t * new_dsc = lv_realloc(t->grow_dsc, sizeof(grow_dsc_t) * (t->grow_item_cnt));
                     LV_ASSERT_MALLOC(new_dsc);
-                    if(new_dsc == NULL)
-                        return item_id;
+                    if(new_dsc == NULL) return item_id;
 
-                    int32_t max_size = f->row ? lv_obj_calc_dynamic_width(item, LV_STYLE_MAX_WIDTH)
-                                       : lv_obj_calc_dynamic_height(item, LV_STYLE_MAX_HEIGHT);
 
                     new_dsc[t->grow_item_cnt - 1].item = item;
-                    new_dsc[t->grow_item_cnt - 1].min_size = min_size;
-                    new_dsc[t->grow_item_cnt - 1].max_size = max_size;
+                    new_dsc[t->grow_item_cnt - 1].min_size = f->row ? lv_obj_get_style_min_width(item, LV_PART_MAIN)
+                                                             : lv_obj_get_style_min_height(item, LV_PART_MAIN);
+                    new_dsc[t->grow_item_cnt - 1].max_size = f->row ? lv_obj_get_style_max_width(item, LV_PART_MAIN)
+                                                             : lv_obj_get_style_max_height(item, LV_PART_MAIN);
                     new_dsc[t->grow_item_cnt - 1].grow_value = grow_value;
                     new_dsc[t->grow_item_cnt - 1].clamped = 0;
 
@@ -380,10 +377,8 @@ static int32_t find_track_end(lv_obj_t * cont, flex_t * f, int32_t item_start_id
             else {
                 int32_t item_size = get_main_size(item);
                 int32_t req_size = item_size;
-                if(!first_item)
-                    req_size += item_gap; /*No gap before the first item*/
-                if(f->wrap && t->track_fix_main_size + t->track_grow_min_size + req_size > max_main_size)
-                    break;
+                if(!first_item) req_size += item_gap; /*No gap before the first item*/
+                if(f->wrap && t->track_fix_main_size + grow_min_size_sum + req_size > max_main_size) break;
                 t->track_fix_main_size += req_size;
             }
 
